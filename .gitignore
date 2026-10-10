@@ -1,0 +1,10 @@
+/target
+/web/
+/games/
+/SAVES/
+/CURRENT_GAME
+/TIM.CFG
+/TIM-BEVY.CFG
+/RESOURCE.*
+*.zip
+*.log

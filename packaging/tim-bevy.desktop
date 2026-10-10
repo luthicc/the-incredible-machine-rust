@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=The Incredible Machine
+Comment=Player for the original DOS The Incredible Machine
+Exec=tim-bevy %f
+Icon=tim-bevy
+Categories=Game;LogicGame;
+MimeType=application/zip;
+Terminal=false

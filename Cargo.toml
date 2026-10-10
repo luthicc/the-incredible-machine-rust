@@ -1,0 +1,28 @@
+[package]
+name = "tim-bevy"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.17", default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_color", "bevy_core_pipeline", "bevy_image", "bevy_render", "bevy_camera", "bevy_shader", "bevy_sprite", "bevy_sprite_render", "bevy_window", "bevy_winit", "bevy_log", "png"] }
+oplon = "1.0.0"
+zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
+font8x8 = "0.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+winit = { version = "0.30", default-features = false, features = ["x11"] }
+bevy = { version = "0.17", default-features = false, features = ["x11", "multi_threaded"] }
+rfd = { version = "0.15.4", default-features = false, features = ["xdg-portal", "async-std"] }
+rodio = { version = "0.20", default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy = { version = "0.17", default-features = false, features = ["webgl2"] }
+wasm-bindgen = "=0.2.128"
+serde_json = "1"
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = ["Window"] }
+
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3

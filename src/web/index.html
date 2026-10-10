@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Incredible Machine - Bevy 1.0</title>
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,monospace;background:#142123;color:#eef2e7}*{box-sizing:border-box}body{margin:0;min-height:100dvh;display:flow-root}button,.browse{font:inherit;color:#f4d155;background:#283e3e;border:1px solid #f4d155;padding:10px 16px;cursor:pointer}button:hover,.browse:hover{background:#344e4e}button:disabled{opacity:.45;cursor:wait}#import{width:min(560px,calc(100% - 40px));margin:18vh auto 0;border:1px solid #52726e;padding:28px}h1{font-size:22px;line-height:1.5;color:#f4d155;margin:0 0 12px}p{line-height:1.6;color:#a6c9c5;font-size:14px}#status{font-size:13px;min-height:40px;white-space:pre-wrap}#drop.drag{outline:2px solid #f4d155;outline-offset:12px}.actions{display:flex;gap:12px;flex-wrap:wrap}#player[hidden],#import[hidden]{display:none}#player{position:fixed;inset:0;background:#000}#toolbar{position:absolute;top:8px;right:8px;display:flex;gap:8px;font-size:12px;opacity:0;transition:opacity .3s;z-index:1}#toolbar.show,#toolbar:hover{opacity:1}#toolbar button{padding:6px 10px;color:#a6c9c5;border-color:#52726e;background:#142123cc}#back{position:absolute;top:10px;left:10px;z-index:1;width:44px;height:44px;padding:0;border-radius:50%;font-size:22px;line-height:1;color:#f4d155;background:#142123b3;border:1px solid #52726e;display:none}@media (pointer:coarse){#back{display:block}}#stage{position:absolute;inset:0;overflow:hidden;touch-action:none;display:flex;align-items:center;justify-content:center}canvas{display:block;outline:none;touch-action:none;-webkit-user-select:none;user-select:none}#loading{color:#a6c9c5;font-size:12px}#file{display:none}.small{font-size:12px;margin-bottom:0}
+</style>
+</head>
+<body>
+<main id="import"><div id="drop">
+<h1><img src="./icon.svg" width="28" height="28" alt=""> THE INCREDIBLE MACHINE</h1>
+<p class="small">Bevy 1.0</p>
+<p>Choose a ZIP of the original game, or drop it here.</p>
+<div class="actions"><button id="browse" disabled>Browse ZIP…</button><button id="resume" hidden>Play imported game</button></div>
+<input id="file" type="file" accept=".zip,application/zip">
+<p id="status" role="status">Loading the player…</p>
+<p class="small">Your ZIP stays in this browser and is remembered, along with saves and solutions, for next time.</p>
+</div></main>
+<section id="player" hidden><button id="back" aria-label="Back">←</button><div id="toolbar"><button id="mute">Mute</button><button id="fullscreen">Fullscreen</button><button id="change">Change ZIP</button></div><div id="stage"><canvas id="game" tabindex="0"></canvas></div></section>
+<script type="module">
+import init, {start_game,audio_samples,go_back} from './pkg/tim_bevy.js';
+const $=id=>document.getElementById(id);
+let ready=false,started=false,muted=false,audio,node,cached;
+const db=new Promise((resolve,reject)=>{const r=indexedDB.open('tim-original-game',1);r.onupgradeneeded=()=>r.result.createObjectStore('game');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+async function loadCached(){try{const store=(await db).transaction('game').objectStore('game');cached=await new Promise((resolve,reject)=>{const r=store.get('zip');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});$('resume').hidden=!cached;}catch{}}
+async function remember(bytes){try{const tx=(await db).transaction('game','readwrite');tx.objectStore('game').put(bytes,'zip');}catch{}try{await navigator.storage.persist();}catch{}}
+async function forget(){try{const tx=(await db).transaction('game','readwrite');tx.objectStore('game').delete('zip');await new Promise(r=>{tx.oncomplete=tx.onerror=r});}catch{}}
+function enableAudio(){if(!audio){audio=new AudioContext({sampleRate:48000});node=audio.createScriptProcessor(2048,0,1);node.onaudioprocess=e=>{const dest=e.outputBuffer.getChannelData(0);if(started)dest.set(audio_samples(dest.length));else dest.fill(0)};node.connect(audio.destination);}audio.resume();}
+for(const type of ['pointerdown','keydown'])addEventListener(type,()=>audio&&audio.state==='suspended'&&!muted&&audio.resume(),true);
+async function play(bytes,fresh=true){if(!ready||started)return;$('status').textContent='Importing original game…';$('browse').disabled=true;$('resume').disabled=true;try{start_game(new Uint8Array(bytes));started=true;$('import').hidden=true;$('player').hidden=false;window.dispatchEvent(new Event('resize'));$('game').focus();if(fresh)remember(bytes);}catch(error){$('status').textContent=String(error);$('browse').disabled=false;$('resume').disabled=false;}}
+$('browse').onclick=()=>$('file').click();
+$('file').onchange=async()=>{const file=$('file').files[0];if(file){enableAudio();await play(await file.arrayBuffer());}};
+$('resume').onclick=()=>{enableAudio();play(cached,false);};
+for(const type of ['dragenter','dragover'])$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.add('drag');});
+$('drop').addEventListener('dragleave',()=>$('drop').classList.remove('drag'));
+$('drop').addEventListener('drop',async e=>{e.preventDefault();$('drop').classList.remove('drag');const file=e.dataTransfer.files[0];if(file&&ready){enableAudio();await play(await file.arrayBuffer());}});
+$('mute').onclick=()=>{muted=!muted;if(muted)audio.suspend();else audio.resume();$('mute').textContent=muted?'Unmute':'Mute';};
+$('fullscreen').onclick=()=>{if(!document.fullscreenElement)$('player').requestFullscreen();else document.exitFullscreen();};
+let hideToolbar;$('player').addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||e.clientY>60)return;$('toolbar').classList.add('show');clearTimeout(hideToolbar);hideToolbar=setTimeout(()=>$('toolbar').classList.remove('show'),1500);});
+$('back').onclick=()=>{go_back();};
+$('change').onclick=async()=>{await forget();location.reload();};
+try{await init();ready=true;$('browse').disabled=false;$('status').textContent='Ready. Original game folders inside the ZIP are supported.';await loadCached();if(cached){enableAudio();play(cached,false);}}catch(error){$('status').textContent='Could not load player: '+error;}
+</script>
+</body></html>
